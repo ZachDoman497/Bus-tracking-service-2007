@@ -43,16 +43,16 @@ class _MyHomePageState extends State<MyHomePage> {
     switch (selectedIndex) {
       case 0:
         page = Placeholder();
-        break;
+
       case 1:
         page = Placeholder();
-        break;
+
       case 2:
         page = Placeholder();
-        break;
+        
       case 3:
         page = Placeholder();
-        break;
+
       default:
         throw UnimplementedError('No widget for $selectedIndex');
     }
