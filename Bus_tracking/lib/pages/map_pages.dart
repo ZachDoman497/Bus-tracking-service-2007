@@ -34,7 +34,7 @@ class MapPageState extends State<MapPage> {
           Align(
             alignment: Alignment.bottomRight, // Aligns the button to the top left
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10,10,50,50), // Add some padding for spacing
+              padding: const EdgeInsets.fromLTRB(1,1,1,110), // Add some padding for spacing
               child: FloatingActionButton(
                 onPressed: permissionDenied ? showPermissionDeniedDialog : getLocationUpdates,
                 child: Icon(Icons.my_location),
