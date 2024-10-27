@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/firebase_options.dart';
 import 'package:flutter_application_1/pages/map_pages.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -11,7 +12,6 @@ void main() async {
   );
   runApp(MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -32,18 +32,28 @@ class MyApp extends StatelessWidget {
   }
 }
 
-
 class MyAppState extends ChangeNotifier {}
 
 class MyHomePage extends StatefulWidget {
+  final LatLng? initialLocation;
+  final String? initialWheelchairAccess;
+  final String? initialCapacity;
+  final TimeOfDay? initialDepartureTime;
+
+  const MyHomePage({
+    Key? key,
+    this.initialLocation,
+    this.initialWheelchairAccess,
+    this.initialCapacity,
+    this.initialDepartureTime,
+  }) : super(key: key);
+
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   var selectedIndex = 0;
-
-  // Create a GlobalKey to control the Scaffold's state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -51,17 +61,23 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget page;
     switch (selectedIndex) {
       case 0:
-        page = MapPage();
-
+        page = MapPage(
+          userLocation:
+              widget.initialLocation ?? LatLng(10.4203732, -61.4654937),
+          wheelchairAccess: widget.initialWheelchairAccess ?? 'null',
+          capacity: widget.initialCapacity ?? 'Moderate',
+          departureTime: widget.initialDepartureTime,
+        );
+        break;
       case 1:
         page = Placeholder();
-
+        break;
       case 2:
         page = Placeholder();
-        
+        break;
       case 3:
         page = Placeholder();
-
+        break;
       default:
         throw UnimplementedError('No widget for $selectedIndex');
     }
@@ -70,7 +86,7 @@ class _MyHomePageState extends State<MyHomePage> {
       bool isLargeScreen = constraints.maxWidth >= 600;
 
       return Scaffold(
-        key: _scaffoldKey, // Assign the GlobalKey to the Scaffold
+        key: _scaffoldKey,
         appBar: AppBar(
           title: Text('UWI Bus Tracker'),
           leading: isLargeScreen
@@ -78,7 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
               : IconButton(
                   icon: Icon(Icons.menu),
                   onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer(); // Open the drawer using GlobalKey
+                    _scaffoldKey.currentState?.openDrawer();
                   },
                 ),
         ),
@@ -87,7 +103,7 @@ class _MyHomePageState extends State<MyHomePage> {
             : Drawer(
                 child: SafeArea(
                   child: NavigationRail(
-                    extended: true, // Always extended in the Drawer for small screens
+                    extended: true,
                     destinations: [
                       NavigationRailDestination(
                         icon: Icon(Icons.home),
@@ -111,7 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       setState(() {
                         selectedIndex = value;
                       });
-                      Navigator.pop(context); // Close the drawer on selection
+                      Navigator.pop(context);
                     },
                   ),
                 ),
@@ -121,7 +137,7 @@ class _MyHomePageState extends State<MyHomePage> {
             if (isLargeScreen)
               SafeArea(
                 child: NavigationRail(
-                  extended: isLargeScreen, // Only extend on large screens
+                  extended: isLargeScreen,
                   destinations: [
                     NavigationRailDestination(
                       icon: Icon(Icons.home),
