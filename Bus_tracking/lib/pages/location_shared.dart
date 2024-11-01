@@ -21,15 +21,6 @@ class SharingPage extends StatelessWidget {
                 size: 64,
                 color: Theme.of(context).primaryColor,
               ),
-              SizedBox(height: 20),
-              Text(
-                "Sharing your location helps others know where the bus is.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
               SizedBox(height: 40),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
