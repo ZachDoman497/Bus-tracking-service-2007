@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/firebase_options.dart';
 import 'package:flutter_application_1/pages/map_pages.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -12,6 +11,7 @@ void main() async {
   );
   runApp(MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
         title: 'UWI Bus Tracker',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 215, 30, 205)),
         ),
         home: MyHomePage(),
       ),
@@ -32,28 +32,18 @@ class MyApp extends StatelessWidget {
   }
 }
 
+
 class MyAppState extends ChangeNotifier {}
 
 class MyHomePage extends StatefulWidget {
-  final LatLng? initialLocation;
-  final String? initialWheelchairAccess;
-  final String? initialCapacity;
-  final TimeOfDay? initialDepartureTime;
-
-  const MyHomePage({
-    Key? key,
-    this.initialLocation,
-    this.initialWheelchairAccess,
-    this.initialCapacity,
-    this.initialDepartureTime,
-  }) : super(key: key);
-
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   var selectedIndex = 0;
+
+  // Create a GlobalKey to control the Scaffold's state
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -61,23 +51,17 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget page;
     switch (selectedIndex) {
       case 0:
-        page = MapPage(
-          userLocation:
-              widget.initialLocation ?? LatLng(10.4203732, -61.4654937),
-          wheelchairAccess: widget.initialWheelchairAccess ?? 'null',
-          capacity: widget.initialCapacity ?? 'Moderate',
-          departureTime: widget.initialDepartureTime,
-        );
-        break;
+        page = MapPage();
+
       case 1:
         page = Placeholder();
-        break;
+
       case 2:
         page = Placeholder();
-        break;
+        
       case 3:
         page = Placeholder();
-        break;
+
       default:
         throw UnimplementedError('No widget for $selectedIndex');
     }
@@ -86,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
       bool isLargeScreen = constraints.maxWidth >= 600;
 
       return Scaffold(
-        key: _scaffoldKey,
+        key: _scaffoldKey, // Assign the GlobalKey to the Scaffold
         appBar: AppBar(
           title: Text('UWI Bus Tracker'),
           leading: isLargeScreen
@@ -94,7 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
               : IconButton(
                   icon: Icon(Icons.menu),
                   onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer();
+                    _scaffoldKey.currentState?.openDrawer(); // Open the drawer using GlobalKey
                   },
                 ),
         ),
@@ -103,7 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
             : Drawer(
                 child: SafeArea(
                   child: NavigationRail(
-                    extended: true,
+                    extended: true, // Always extended in the Drawer for small screens
                     destinations: [
                       NavigationRailDestination(
                         icon: Icon(Icons.home),
@@ -127,7 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       setState(() {
                         selectedIndex = value;
                       });
-                      Navigator.pop(context);
+                      Navigator.pop(context); // Close the drawer on selection
                     },
                   ),
                 ),
@@ -137,7 +121,7 @@ class _MyHomePageState extends State<MyHomePage> {
             if (isLargeScreen)
               SafeArea(
                 child: NavigationRail(
-                  extended: isLargeScreen,
+                  extended: isLargeScreen, // Only extend on large screens
                   destinations: [
                     NavigationRailDestination(
                       icon: Icon(Icons.home),
