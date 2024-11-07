@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';  // Import the Timer package
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -26,6 +27,8 @@ class MapPageState extends State<MapPage> {
   bool isSharingLocation = false; // New flag to track sharing status
   String? documentId; // Variable to store the Firestore document ID
 
+  Timer? _locationTimer;  // Timer to update location every 5 seconds
+
   @override
   void initState() {
     super.initState();
@@ -38,30 +41,23 @@ class MapPageState extends State<MapPage> {
       for (var doc in querySnapshot.docs) {
         _updateMarkerLocation(doc.id, doc['location']);
       }
-    }); 
-  }
-
-  void _updateMarkerLocation(String docId, GeoPoint geoPoint) {
-    final markerId = docId;
-    final marker = Marker(
-      markerId: MarkerId(markerId),
-      position: LatLng(geoPoint.latitude, geoPoint.longitude),
-      onTap: () => _showBusInfo(docId),
-    );
-
-    setState(() {
-      // Update or add the marker based on new location
-      _markers.removeWhere((m) => m.markerId.value == markerId);
-      _markers.add(marker);
     });
-
-    // Update the busData map
-    busData[docId] = {
-      'capacity': selectedCapacity,
-      'wheelchair_access': selectedWheelchairAccess,
-      'departure_time': selectedDepartureTime?.format(context),
-    };
   }
+
+ void _updateMarkerLocation(String docId, GeoPoint geoPoint) {
+  final markerId = docId;
+  final marker = Marker(
+    markerId: MarkerId(markerId),
+    position: LatLng(geoPoint.latitude, geoPoint.longitude),
+    onTap: () => _showBusInfo(docId),  // Calls the updated function to fetch data on tap
+  );
+
+  setState(() {
+    _markers.removeWhere((m) => m.markerId.value == markerId);  // Remove existing marker with same ID
+    _markers.add(marker);  // Add the updated marker
+  });
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -230,9 +226,33 @@ class MapPageState extends State<MapPage> {
       currentP = LatLng(locationData.latitude!, locationData.longitude!);
       isSharingLocation = true; // Set flag to true after sharing starts
     });
+
+    // Start the timer to update the location every 5 seconds
+    _startLocationUpdates();
+  }
+
+  void _startLocationUpdates() {
+    _locationTimer = Timer.periodic(Duration(seconds: 5), (Timer t) async {
+      LocationData locationData = await locationController.getLocation();
+      GeoPoint geoPoint = GeoPoint(locationData.latitude!, locationData.longitude!);
+
+      print('Location updated: Latitude ${locationData.latitude}, Longitude ${locationData.longitude}');
+      // Update Firestore with the new location
+      await firestore.collection('bus_details').doc(documentId).update({
+        'location': geoPoint,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Optionally, update the local marker as well
+      _updateMarkerLocation(documentId!, geoPoint);
+    });
   }
 
   void _stopSharingLocation() async {
+    if (_locationTimer != null) {
+      _locationTimer?.cancel();  // Stop the location updates
+    }
+
     if (documentId != null) {
       // Delete the document from Firestore
       await firestore.collection('bus_details').doc(documentId).delete();
@@ -256,22 +276,26 @@ class MapPageState extends State<MapPage> {
     setState(() {
       _markers.add(marker);
     });
-
-    busData[docId] = {
-      'capacity': selectedCapacity,
-      'wheelchair_access': selectedWheelchairAccess,
-      'departure_time': selectedDepartureTime?.format(context),
-    };
   }
 
-  void _showBusInfo(String docId) {
-    Map<String, dynamic> busInfo = busData[docId]!;
+void _showBusInfo(String docId) async {
+  // Fetch the specific document data from Firestore
+  DocumentSnapshot docSnapshot = await firestore.collection('bus_details').doc(docId).get();
+
+  if (docSnapshot.exists) {
+    // Extract information from the document
+    Map<String, dynamic> busInfo = docSnapshot.data() as Map<String, dynamic>;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Bus Information"),
+          title: Center(
+            child: Text(
+              "Bus Information",
+              textAlign: TextAlign.center,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -289,21 +313,26 @@ class MapPageState extends State<MapPage> {
         );
       },
     );
+  } else {
+    print("Document with ID $docId does not exist in Firestore.");
   }
+}
+
+
 
   void showPermissionDeniedDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
           title: Text("Permission Denied"),
-          content: Text("Please enable location permissions to share location."),
-          actions: [
+          content: Text("Please enable location permissions to share your location."),
+          actions: <Widget>[
             TextButton(
+              child: Text("OK"),
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text("Close"),
             ),
           ],
         );
