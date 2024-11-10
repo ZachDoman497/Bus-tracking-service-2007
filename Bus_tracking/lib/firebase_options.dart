@@ -62,5 +62,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'bustracking-2297b.appspot.com',
     measurementId: 'G-5NK5DPJ4EB',
   );
-
 }
