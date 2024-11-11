@@ -313,8 +313,7 @@ class _MyHomePageState extends State<MyHomePage> {
               LatLng stopPosition = stopCoordinates[stop]!;
               double distance = _calculateDistance(busPosition, stopPosition);
 
-              if (distance <= 0.1) {
-                // 0.1 km = 100 meters
+              if (distance <= 1) {
                 // Check if notification has already been sent for this bus and stop
                 String busStopKey = '$busId-$stop';
                 if (!notifiedBusStops.contains(busStopKey)) {
@@ -392,7 +391,7 @@ Map<String, LatLng> stopCoordinates = {
   'WASA': LatLng(10.6667, -61.5076),
   'Curepe TML': LatLng(10.6679, -61.5078),
   'Curepe Terminal': LatLng(10.6606401, -61.5076074),
-  'The UWI St. Augustine Campus': LatLng(10.6417, -61.3994),
+  'The UWI St. Augustine Campus': LatLng(10.6447353, -61.3998621),
 };
 
 class LatLng {
