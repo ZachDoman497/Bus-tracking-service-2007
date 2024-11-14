@@ -171,54 +171,62 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void showNotificationDialog() {
-    // Open the dialog
     showDialog(
       context: context,
+      barrierDismissible: true, // Allows tapping outside to dismiss
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Stops'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Iterate through all stops in stopCoordinates and create a CheckboxListTile for each
-                ...stopCoordinates.keys.map((stop) {
-                  return CheckboxListTile(
-                    title: Text(stop),
-                    // If the stop is in selectedStops, the box will be checked
-                    value: selectedStops.contains(stop),
-                    onChanged: (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          // Add the stop to the selectedStops list if checkbox is checked
-                          selectedStops.add(stop);
-                        } else {
-                          // Remove the stop from the selectedStops list if checkbox is unchecked
-                          selectedStops.remove(stop);
-                        }
+        return GestureDetector(
+          onTap: () {
+            // Dismiss dialog when tapping outside
+            Navigator.of(context).pop();
+          },
+          child: WillPopScope(
+            onWillPop: () async {
+              // Allow back navigation
+              return true;
+            },
+            child: AlertDialog(
+              title: const Text('Select Stops'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: stopCoordinates.keys.map((stop) {
+                    return CheckboxListTile(
+                      title: Text(stop),
+                      value: selectedStops.contains(stop),
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) {
+                            selectedStops
+                                .add(stop); // Add stop to the selected stops
+                          } else {
+                            selectedStops.remove(
+                                stop); // Remove stop from the selected stops
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+
+                    // Start monitoring after the "Submit" button is pressed
+                    if (selectedStops.isNotEmpty) {
+                      _monitoringTimer =
+                          Timer.periodic(Duration(seconds: 5), (Timer t) {
+                        beginMonitoring();
                       });
-                    },
-                  );
-                }).toList(),
+                    }
+                  },
+                  child: const Text('Submit'),
+                ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Timer? _monitoringTimer; // Store reference to the time
-
-                if (selectedStops.isNotEmpty) {
-                  _monitoringTimer =
-                      Timer.periodic(Duration(seconds: 5), (Timer t) {
-                    beginMonitoring(); // Call _monitorBuses every 5 seconds
-                  });
-                }
-              },
-              child: const Text('Submit'),
-            ),
-          ],
         );
       },
     );
