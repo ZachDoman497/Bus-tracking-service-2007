@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:async'; // Import the Timer package
+import 'dart:async';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -17,26 +17,204 @@ class MapPageState extends State<MapPage> {
   bool permissionDenied = false;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   Set<Marker> _markers = {};
-  Map<String, Map<String, dynamic>> busData = {};
-
-  // Variables for storing form data
+  Set<Polyline> _polylines = {};
   String selectedCapacity = 'Moderate';
   String selectedWheelchairAccess = 'No';
   TimeOfDay? selectedDepartureTime;
+  bool isSharingLocation = false;
+  String? documentId;
+  Timer? _locationTimer;
 
-  bool isSharingLocation = false; // New flag to track sharing status
-  String? documentId; // Variable to store the Firestore document ID
+  final List<LatLng> routeStops = [
+    LatLng(10.283636641282095, -61.468293973896834), // San Fernando Terminal
 
-  Timer? _locationTimer; // Timer to update location every 5 seconds
+    LatLng(10.2795, -61.4660),
+    LatLng(10.2720, -61.4635),
+
+    LatLng(10.266362580449908, -61.46269418938906), // Skinner Park
+    LatLng(10.270515402223923, -61.455563772018294), // Pleasantville
+    LatLng(10.27933085037673, -61.44783628399069), // Mon Repos
+
+    LatLng(10.290831219931297, -61.4457973119406),
+
+    LatLng(10.290957686241963, -61.44596393004433),
+    LatLng(10.291154411505158, -61.44594488797437),
+
+    LatLng(10.291229354430298, -61.4457544672748),
+    LatLng(10.29107478462768, -61.44557356761022),
+    LatLng(10.291196566902746, -61.44497374240659),
+
+    LatLng(10.290840587814044,
+        -61.44015609854938), // San Fernando Technical Institute
+
+    LatLng(10.29074222510474, -61.43947534449412),
+
+    LatLng(10.29034877393905, -61.438361383346994),
+    LatLng(10.290404981278078, -61.43815668109495),
+
+    LatLng(10.290582971118946, -61.437999584017824),
+    LatLng(10.291346452733919, -61.43714269083768),
+    LatLng(10.29474594611, -61.43503160478408),
+    LatLng(10.296197968984591, -61.43437834511059),
+
+    LatLng(10.297793827680119, -61.4339059752504),
+    LatLng(10.298857056407536, -61.433767920239106),
+
+    LatLng(10.309729398664405, -61.43294570119035),
+    LatLng(10.310900310881093, -61.43291237756551),
+
+    LatLng(10.311434245407748, -61.43285525135227),
+    LatLng(10.312277298071653, -61.43263150702692),
+    LatLng(10.313918256300841, -61.43197724040799),
+    LatLng(10.314541173834755, -61.431934395750595),
+
+    LatLng(10.315527141658691, -61.431574976417274), // Gasparillo
+
+    LatLng(10.316413576735867, -61.43091097950294),
+    LatLng(10.318177006191764, -61.43034999594168),
+
+    LatLng(10.323222947303517, -61.42996333450235),
+    LatLng(10.329199641416695, -61.43034440300163),
+
+    LatLng(10.341273692193532, -61.43205554013215),
+    LatLng(10.345936630505735, -61.43230882093171),
+    LatLng(10.348274887392884, -61.432319219234124),
+    LatLng(10.353490420079572, -61.43204959936183),
+
+    LatLng(10.356237065071348, -61.43139227540598),
+    LatLng(10.357868430309923, -61.43059625007492),
+    LatLng(10.359100113237309, -61.42972128029228),
+    LatLng(10.364475549184927, -61.42460452225378),
+    LatLng(10.36514587538267, -61.42426681454438),
+
+    LatLng(10.366337692296643, -61.42320697369503), // claxton bay
+
+    LatLng(10.36665818813525, -61.422891338616616),
+    LatLng(10.367141331883868, -61.42203576669028),
+
+    LatLng(10.368567380903203, -61.421037599356524),
+    LatLng(10.370055763908884, -61.420538515722896),
+    LatLng(10.375223727278719, -61.42039106259475),
+    LatLng(10.376353628196036, -61.42020093550034),
+    LatLng(10.384487084702748, -61.41763091776937),
+
+    LatLng(10.384931898986958, -61.41746002771357),
+    LatLng(10.393577598098078, -61.41626454709428),
+    LatLng(10.394736213375744, -61.41616913121276),
+    LatLng(10.4132700650031, -61.41707394474782),
+    LatLng(10.413893933016672, -61.41755154740377),
+
+    LatLng(10.41420953635985, -61.418469440016864),
+    LatLng(10.415002213101754, -61.418879879816906),
+    LatLng(10.415780208690204, -61.41923061927531),
+    LatLng(10.416117828809615, -61.41905898081201),
+
+    LatLng(10.415949018805426, -61.418641078483944),
+    LatLng(10.416565541920761, -61.41752915978171),
+
+    LatLng(10.41785614724562, -61.41715760229082), // Preysal
+
+    LatLng(10.418334369256257, -61.41653664173996),
+    LatLng(10.419376578177873, -61.41577546249613),
+
+    LatLng(10.428298288277169, -61.413171589479504),
+    LatLng(10.447579426254993, -61.41084325129907),
+    LatLng(10.450953693992833, -61.41056211844158),
+    LatLng(10.459423849056904, -61.41051107934139),
+
+    LatLng(10.460592061486595, -61.41065536393663), // Freeport
+
+    LatLng(10.46176596836045, -61.410645530322775),
+    LatLng(10.463127657818013, -61.41026479166359),
+    LatLng(10.464191307266486, -61.40978169267009),
+
+    LatLng(10.470556444007629, -61.40594023593889),
+    LatLng(10.47240740881364, -61.4051719445931),
+    LatLng(10.47429613701939, -61.40481660984552),
+
+    LatLng(10.475901546953143, -61.404768591636106),
+    LatLng(10.512582094106813, -61.4075255920574),
+    LatLng(10.513654745545125, -61.40783986189108),
+
+    LatLng(10.515293334140432, -61.40802185557044), // Chaguanas
+
+    LatLng(10.51631378670676, -61.407823569128105),
+    LatLng(10.519649435941245, -61.40811207283588),
+
+    LatLng(10.521536308332461, -61.40842157869408),
+    LatLng(10.61162828254427, -61.42425079055426),
+    LatLng(10.61195812175266, -61.424324209700316),
+    LatLng(10.621444453209689, -61.427840358936756),
+    LatLng(10.622613052843086, -61.42811940370112),
+
+    LatLng(10.628730241102588, -61.428798816963685),
+    LatLng(10.629958433696507, -61.4289808026501),
+    LatLng(10.630661959267167, -61.42921131785289),
+    LatLng(10.631508572666489, -61.42949036259536),
+
+    LatLng(10.6369101492204, -61.43124955764823),
+    LatLng(10.637829410233822, -61.43142328175792),
+    LatLng(10.641453179888453, -61.431128005214575),
+    LatLng(10.641951640796266, -61.43097845100104),
+
+    LatLng(10.642807969149645, -61.430399741236236),
+    LatLng(10.643855913772548, -61.42896651689763),
+    LatLng(10.64394538046552, -61.42890799568693),
+    LatLng(10.644143485192236, -61.428784450908786),
+    LatLng(10.644098751878108, -61.42857637549296),
+    LatLng(10.645600509573516, -61.42658665427862),
+    LatLng(10.645990326312756, -61.42630055058188),
+    LatLng(10.646405704293576, -61.42615099635684),
+    LatLng(10.648839181042835, -61.42559473439378),
+    LatLng(10.648963646450495, -61.42557037929152),
+    LatLng(10.649887269839388, -61.42562944935876),
+
+    LatLng(10.650215602739129, -61.424693660508304), // Mount Hope
+    LatLng(10.651229117569864, -61.419143656872485), // WASA
+    LatLng(10.65163737482498, -61.41688806204902),
+    LatLng(10.65151076909091, -61.415284900573084),
+    LatLng(10.651285692100432, -61.41398233187389),
+    LatLng(10.649894269876095, -61.41016550215149), // Curepe Terminal
+    LatLng(10.647999394465788, -61.40584338578394), //test
+    LatLng(10.64747941101955, -61.40520373264287), // test 2
+    LatLng(10.646816861128263, -61.404588590801644),
+    LatLng(10.645687290166283, -61.40385800297523), //test 3
+    LatLng(10.645398201157368, -61.40141066955223), //test 4
+    LatLng(10.644818896095092, -61.40149405543516), //test 5
+    LatLng(10.644773049858022, -61.40054725059592),
+    LatLng(10.644614604984717, -61.40038252662922),
+    LatLng(10.64462046441406, -61.40010704773899), // test 6
+    LatLng(10.643960157896306, -61.40005307869582),
+    LatLng(10.643843046163848, -61.400007516747586),
+    LatLng(10.643686462277167, -61.39979675270385),
+    LatLng(10.643693497466154, -61.39953666599724),
+    LatLng(10.64491996293649, -61.39953189375455),
+    LatLng(10.644866026700466, -61.39974903036283),
+    LatLng(10.644778345612824,
+        -61.399909971872724), // The UWI St. Augustine Campus
+  ];
 
   @override
   void initState() {
     super.initState();
     _initializeRealTimeTracking();
+    _createRoutePolyline();
+  }
+
+  void _createRoutePolyline() {
+    Polyline routePolyline = Polyline(
+      polylineId: PolylineId("routePolyline"),
+      color: Colors.blue,
+      width: 5,
+      points: routeStops,
+    );
+
+    setState(() {
+      _polylines.add(routePolyline);
+    });
   }
 
   void _initializeRealTimeTracking() {
-    // Listen for real-time updates from Firestore for bus locations
     firestore.collection('bus_details').snapshots().listen((querySnapshot) {
       for (var doc in querySnapshot.docs) {
         _updateMarkerLocation(doc.id, doc['location']);
@@ -49,14 +227,12 @@ class MapPageState extends State<MapPage> {
     final marker = Marker(
       markerId: MarkerId(markerId),
       position: LatLng(geoPoint.latitude, geoPoint.longitude),
-      onTap: () => _showBusInfo(
-          docId), // Calls the updated function to fetch data on tap
+      onTap: () => _showBusInfo(docId),
     );
 
     setState(() {
-      _markers.removeWhere((m) =>
-          m.markerId.value == markerId); // Remove existing marker with same ID
-      _markers.add(marker); // Add the updated marker
+      _markers.removeWhere((m) => m.markerId.value == markerId);
+      _markers.add(marker);
     });
   }
 
@@ -71,9 +247,12 @@ class MapPageState extends State<MapPage> {
               child: GoogleMap(
                 initialCameraPosition: CameraPosition(
                   target: LatLng(10.4203732, -61.4654937),
-                  zoom: 11,
+                  zoom: 10,
                 ),
                 markers: _markers,
+                polylines: _polylines,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: true,
               ),
             ),
             Padding(
@@ -82,8 +261,8 @@ class MapPageState extends State<MapPage> {
                 onPressed: permissionDenied
                     ? showPermissionDeniedDialog
                     : isSharingLocation
-                        ? _stopSharingLocation // Call stop sharing if already sharing
-                        : showInformationDialog, // Show info dialog if not sharing
+                        ? _stopSharingLocation
+                        : showInformationDialog,
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 15, horizontal: 30),
                 ),
@@ -155,7 +334,6 @@ class MapPageState extends State<MapPage> {
                           ? 'Select Time'
                           : selectedDepartureTime!.format(context)),
                     ),
-                    SizedBox(height: 10),
                   ],
                 );
               },
@@ -165,7 +343,7 @@ class MapPageState extends State<MapPage> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _submitInformation(); // Call the submit function when dialog is closed
+                _submitInformation();
               },
               child: Text("Submit and Share Location"),
             ),
@@ -225,16 +403,14 @@ class MapPageState extends State<MapPage> {
       'timestamp': FieldValue.serverTimestamp(),
     });
 
-    // Store the document ID for deletion later
     documentId = docRef.id;
     _addMarker(docRef.id, geoPoint);
 
     setState(() {
       currentP = LatLng(locationData.latitude!, locationData.longitude!);
-      isSharingLocation = true; // Set flag to true after sharing starts
+      isSharingLocation = true;
     });
 
-    // Start the timer to update the location every 5 seconds
     _startLocationUpdates();
   }
 
@@ -244,33 +420,25 @@ class MapPageState extends State<MapPage> {
       GeoPoint geoPoint =
           GeoPoint(locationData.latitude!, locationData.longitude!);
 
-      print(
-          'Location updated: Latitude ${locationData.latitude}, Longitude ${locationData.longitude}');
-      // Update Firestore with the new location
       await firestore.collection('bus_details').doc(documentId).update({
         'location': geoPoint,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // Optionally, update the local marker as well
       _updateMarkerLocation(documentId!, geoPoint);
     });
   }
 
   void _stopSharingLocation() async {
-    if (_locationTimer != null) {
-      _locationTimer?.cancel(); // Stop the location updates
-    }
-
+    _locationTimer?.cancel();
     if (documentId != null) {
-      // Delete the document from Firestore
       await firestore.collection('bus_details').doc(documentId).delete();
     }
 
     setState(() {
-      _markers.clear(); // Clear markers when stopping location sharing
-      isSharingLocation = false; // Reset the sharing flag
-      documentId = null; // Clear the document ID
+      _markers.clear();
+      isSharingLocation = false;
+      documentId = null;
     });
   }
 
@@ -288,31 +456,24 @@ class MapPageState extends State<MapPage> {
   }
 
   void _showBusInfo(String docId) async {
-    // Fetch the specific document data from Firestore
     DocumentSnapshot docSnapshot =
         await firestore.collection('bus_details').doc(docId).get();
-
     if (docSnapshot.exists) {
-      // Extract information from the document
       Map<String, dynamic> busInfo = docSnapshot.data() as Map<String, dynamic>;
 
       showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Center(
-              child: Text(
-                "Bus Information",
-                textAlign: TextAlign.center,
-              ),
-            ),
+            title: Center(child: Text("Bus Information")),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text("Capacity: ${busInfo['capacity']}"),
                 Text(
                     "Wheelchair Access: ${busInfo['wheelchair_access'] == 'Yes' ? 'Yes' : 'No'}"),
-                Text("Departure Time: ${busInfo['departure_time']}"),
+                Text(
+                    "Departure Time: ${busInfo['departure_time'] ?? 'Unknown'}"),
               ],
             ),
             actions: [
@@ -324,25 +485,21 @@ class MapPageState extends State<MapPage> {
           );
         },
       );
-    } else {
-      print("Document with ID $docId does not exist in Firestore.");
     }
   }
 
   void showPermissionDeniedDialog() {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (BuildContext context) {
         return AlertDialog(
           title: Text("Permission Denied"),
           content: Text(
-              "Please enable location permissions to share your location."),
-          actions: <Widget>[
+              "Location permissions are required to share your location. Please enable permissions."),
+          actions: [
             TextButton(
+              onPressed: () => Navigator.of(context).pop(),
               child: Text("OK"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
             ),
           ],
         );

@@ -306,7 +306,7 @@ class _MyHomePageState extends State<MyHomePage> {
           LatLng busPosition = LatLng(geoPoint.latitude, geoPoint.longitude);
           print('bus id test $busId');
           print('Monitoring buses...');
-
+          print('$timestamp');
           // Check proximity to selected stops
           for (String stop in selectedStops) {
             if (stopCoordinates.containsKey(stop)) {
@@ -377,21 +377,22 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 Map<String, LatLng> stopCoordinates = {
-  'San Fernando Terminal': LatLng(10.6623435, -61.5086355),
-  'Skinner Park': LatLng(10.484610, -61.322093),
-  'Pleasantville': LatLng(10.2843, -61.4465),
-  'Mon Repos': LatLng(10.2870, -61.4468),
-  'San Fernando Technical Institute': LatLng(10.2907, -61.4456),
-  'Gasparillo': LatLng(10.3119, -61.4444),
-  'Claxton Bay': LatLng(10.3462, -61.4529),
-  'Preysal': LatLng(10.3926, -61.4468),
-  'Freeport': LatLng(10.4459, -61.4495),
-  'Chaguanas': LatLng(10.5105, -61.4123),
-  'Mount Hope': LatLng(10.6553, -61.5005),
-  'WASA': LatLng(10.6667, -61.5076),
-  'Curepe TML': LatLng(10.6679, -61.5078),
-  'Curepe Terminal': LatLng(10.6606401, -61.5076074),
-  'The UWI St. Augustine Campus': LatLng(10.6447353, -61.3998621),
+  'San Fernando Terminal': LatLng(10.283636641282095, -61.468293973896834),
+  'Skinner Park': LatLng(10.266362580449908, -61.46269418938906),
+  'Pleasantville': LatLng(10.270515402223923, -61.455563772018294),
+  'Mon Repos': LatLng(10.27933085037673, -61.44783628399069),
+  'San Fernando Technical Institute':
+      LatLng(10.290749968131781, -61.4399564881722),
+  'Gasparillo': LatLng(10.315527141658691, -61.431574976417274),
+  'Claxton Bay': LatLng(10.366337692296643, -61.42320697369503),
+  'Preysal': LatLng(10.41785614724562, -61.41715760229082),
+  'Freeport': LatLng(10.460592061486595, -61.41065536393663),
+  'Chaguanas': LatLng(10.515293334140432, -61.40802185557044),
+  'Mount Hope': LatLng(10.650215602739129, -61.424693660508304),
+  'WASA': LatLng(10.651229117569864, -61.419143656872485),
+  'Curepe Terminal': LatLng(10.649894269876095, -61.41016550215149),
+  'The UWI St. Augustine Campus':
+      LatLng(10.644778345612824, -61.399909971872724),
 };
 
 class LatLng {
