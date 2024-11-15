@@ -1,0 +1,9 @@
+2024/11/14-19:44:37.792 12ec Reusing MANIFEST C:\Users\gaita\AppData\Local\Temp\flutter_tools.bc0494e4\flutter_tools_chrome_device.c7841f4b\Default\Local Storage\leveldb/MANIFEST-000001
+2024/11/14-19:44:37.838 12ec Recovering log #3
+2024/11/14-19:44:37.848 12ec Reusing old log C:\Users\gaita\AppData\Local\Temp\flutter_tools.bc0494e4\flutter_tools_chrome_device.c7841f4b\Default\Local Storage\leveldb/000003.log 
+2024/11/14-19:50:49.999 2d0 Level-0 table #5: started
+2024/11/14-19:50:50.027 2d0 Level-0 table #5: 24208 bytes OK
+2024/11/14-19:50:50.037 2d0 Delete type=0 #3
+2024/11/14-19:51:21.952 12ec Level-0 table #7: started
+2024/11/14-19:51:21.966 12ec Level-0 table #7: 63285 bytes OK
+2024/11/14-19:51:21.971 12ec Delete type=0 #4

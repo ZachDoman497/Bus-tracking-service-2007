@@ -1,0 +1,24 @@
+2024/11/14-15:49:51.356 da8 Reusing MANIFEST C:\Users\gaita\AppData\Local\Temp\flutter_tools.f64efafa\flutter_tools_chrome_device.5899d342\Default\IndexedDB\http_localhost_50951.indexeddb.leveldb/MANIFEST-000001
+2024/11/14-15:49:51.360 da8 Recovering log #6
+2024/11/14-15:49:51.362 da8 Reusing old log C:\Users\gaita\AppData\Local\Temp\flutter_tools.f64efafa\flutter_tools_chrome_device.5899d342\Default\IndexedDB\http_localhost_50951.indexeddb.leveldb/000006.log 
+2024/11/14-15:49:56.731 744 Level-0 table #10: started
+2024/11/14-15:49:56.747 744 Level-0 table #10: 650 bytes OK
+2024/11/14-15:49:56.753 744 Delete type=0 #6
+2024/11/14-15:49:56.755 da8 Manual compaction at level-0 from '\x00\x05\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at '\x00\x05\x00\x00\x05' @ 173 : 1
+2024/11/14-15:49:56.756 da8 Compacting 1@0 + 1@1 files
+2024/11/14-15:49:56.763 da8 Generated table #11@0: 78 keys, 2034 bytes
+2024/11/14-15:49:56.763 da8 Compacted 1@0 + 1@1 files => 2034 bytes
+2024/11/14-15:49:56.768 da8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2024/11/14-15:49:56.769 da8 Delete type=2 #10
+2024/11/14-15:49:56.770 da8 Manual compaction at level-0 from '\x00\x05\x00\x00\x05' @ 173 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at (end)
+2024/11/14-15:50:48.181 744 Level-0 table #13: started
+2024/11/14-15:50:48.191 744 Level-0 table #13: 2047 bytes OK
+2024/11/14-15:50:48.207 744 Delete type=2 #7
+2024/11/14-15:50:48.207 744 Delete type=0 #9
+2024/11/14-15:50:48.213 da8 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at '\x00\x06\x00\x00\x05' @ 216 : 1
+2024/11/14-15:50:48.214 da8 Compacting 1@0 + 1@1 files
+2024/11/14-15:50:48.221 da8 Generated table #14@0: 86 keys, 2129 bytes
+2024/11/14-15:50:48.221 da8 Compacted 1@0 + 1@1 files => 2129 bytes
+2024/11/14-15:50:48.229 da8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2024/11/14-15:50:48.233 da8 Delete type=2 #13
+2024/11/14-15:50:48.235 da8 Manual compaction at level-0 from '\x00\x06\x00\x00\x05' @ 216 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)
