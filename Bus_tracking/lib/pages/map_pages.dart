@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -24,7 +25,11 @@ class MapPageState extends State<MapPage> {
   bool isSharingLocation = false;
   String? documentId;
   Timer? _locationTimer;
-
+  static double minLat = 10.236324341653932;
+  static double maxLat = 10.651843368801126;
+  static double minLong = -61.47365576757059;
+  static double maxLong = -61.3716931241147;
+  
   final List<LatLng> routeStops = [
     LatLng(10.283636641282095, -61.468293973896834), // San Fernando Terminal
 
@@ -279,6 +284,14 @@ class MapPageState extends State<MapPage> {
     });
   }
 
+  bool isLocationValid(GeoPoint geoPoint) {
+  return geoPoint.latitude >= minLat &&
+         geoPoint.latitude <= maxLat &&
+         geoPoint.longitude >= minLong &&
+         geoPoint.longitude <= maxLong;
+}
+
+
   void _initializeRealTimeTracking() {
     firestore.collection('bus_details').snapshots().listen((querySnapshot) {
       for (var doc in querySnapshot.docs) {
@@ -418,81 +431,181 @@ class MapPageState extends State<MapPage> {
     );
   }
 
-  Future<void> _selectDepartureTime(
-      BuildContext context, StateSetter setDialogState) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
-      context: context,
-      initialTime: selectedDepartureTime ?? TimeOfDay.now(),
-    );
+  Future<String?> handleSubmission(
+  int departureTime,
+  GeoPoint geoPoint,
+  String selectedCapacity,
+  String selectedWheelchairAccess,
+) async {
+  try {
+    // Query Firestore for an existing document with the same departure_time
+    QuerySnapshot querySnapshot = await firestore
+        .collection('bus_details')
+        .where('departure_time', isEqualTo: departureTime)
+        .get();
 
-    if (pickedTime != null && pickedTime != selectedDepartureTime) {
-      setDialogState(() {
-        selectedDepartureTime = pickedTime;
+    if (querySnapshot.docs.isNotEmpty) {
+      // If a matching document exists, update it
+      DocumentSnapshot existingDoc = querySnapshot.docs.first;
+
+      await firestore.collection('bus_details').doc(existingDoc.id).update({
+        'capacity': selectedCapacity,
+        'wheelchair_access': selectedWheelchairAccess,
+        'departure_time': departureTime, // Ensure this field is updated
+        'location': geoPoint,
+        'timestamp': FieldValue.serverTimestamp(),
       });
+
+      // Return the document ID of the updated document
+      return existingDoc.id;
+    } else {
+      // If no matching document exists, create a new one
+      DocumentReference newDocRef =
+          await firestore.collection('bus_details').add({
+        'capacity': selectedCapacity,
+        'wheelchair_access': selectedWheelchairAccess,
+        'departure_time': departureTime,
+        'location': geoPoint,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Return the document ID of the new document
+      return newDocRef.id;
+    }
+  } catch (e) {
+    print('Error handling submission: $e');
+    return null; // Return null if an error occurs
+  }
+}
+
+  Future<void> _selectDepartureTime(
+    BuildContext context, StateSetter setDialogState) async {
+  // Show the time picker dialog
+  final TimeOfDay? pickedTime = await showTimePicker(
+    context: context,
+    initialTime: selectedDepartureTime ?? TimeOfDay.now(),
+  );
+
+  // Validate the picked time
+  if (pickedTime != null) {
+    int hour = pickedTime.hour;
+
+    // Check if the selected time is within the allowed range (5 AM to 7 PM)
+    if (hour >= 5 && hour <= 19) {
+      // Round to the nearest hour
+      setDialogState(() {
+        selectedDepartureTime = TimeOfDay(hour: hour, minute: 0);
+      });
+    } else {
+      // Notify user of invalid selection
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please select a time between 5 AM and 7 PM.'),
+        ),
+      );
+    }
+  }
+}
+
+
+  void _submitInformation() async {
+  bool serviceEnabled;
+  PermissionStatus permissionGranted;
+
+  // Check and request location service
+  serviceEnabled = await locationController.serviceEnabled();
+  if (!serviceEnabled) {
+    serviceEnabled = await locationController.requestService();
+    if (!serviceEnabled) {
+      return;
     }
   }
 
-  void _submitInformation() async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await locationController.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await locationController.requestService();
-      if (!serviceEnabled) {
-        return;
-      }
+  // Check and request location permissions
+  permissionGranted = await locationController.hasPermission();
+  if (permissionGranted == PermissionStatus.denied) {
+    permissionGranted = await locationController.requestPermission();
+    if (permissionGranted != PermissionStatus.granted) {
+      setState(() {
+        permissionDenied = true;
+      });
+      showPermissionDeniedDialog();
+      return;
     }
+  }
 
-    permissionGranted = await locationController.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await locationController.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        setState(() {
-          permissionDenied = true;
-        });
-        showPermissionDeniedDialog();
-        return;
-      }
-    }
+  // Get user's current location
+  LocationData locationData = await locationController.getLocation();
+  GeoPoint geoPoint = GeoPoint(locationData.latitude!, locationData.longitude!);
 
-    LocationData locationData = await locationController.getLocation();
-    GeoPoint geoPoint =
-        GeoPoint(locationData.latitude!, locationData.longitude!);
+   // Check if the location is within the valid geofencing area
+  if (!isLocationValid(geoPoint)) {
+    // If the location is outside the boundary, show an error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Location is outside the valid area.'),
+      ),
+    );
+    return; // Exit if the location is invalid
+  }
 
-    DocumentReference docRef = await firestore.collection('bus_details').add({
-      'capacity': selectedCapacity,
-      'wheelchair_access': selectedWheelchairAccess,
-      'departure_time': selectedDepartureTime?.format(context),
-      'location': geoPoint,
-      'timestamp': FieldValue.serverTimestamp(),
+  // Use handleSubmission to manage Firestore interaction
+  String? docId = await handleSubmission(
+    selectedDepartureTime!.hour,
+    geoPoint,
+    selectedCapacity,
+    selectedWheelchairAccess,
+  );
+
+  if (docId != null) {
+    // Assign the document ID to the global variable
+    setState(() {
+      documentId = docId; // Ensure documentId is assigned
     });
 
-    documentId = docRef.id;
-    _addMarker(docRef.id, geoPoint);
+    // Add marker for the returned document ID
+    _addMarker(docId, geoPoint);
 
     setState(() {
       currentP = LatLng(locationData.latitude!, locationData.longitude!);
       isSharingLocation = true;
     });
 
+    // Start location updates
     _startLocationUpdates();
+  } else {
+    print("Error: Document ID is null.");
   }
+}
+
 
   void _startLocationUpdates() {
-    _locationTimer = Timer.periodic(Duration(seconds: 5), (Timer t) async {
-      LocationData locationData = await locationController.getLocation();
-      GeoPoint geoPoint =
-          GeoPoint(locationData.latitude!, locationData.longitude!);
+  if (documentId == null) {
+    print("Error: documentId is not set. Cannot start location updates.");
+    return;
+  }
 
+  _locationTimer = Timer.periodic(Duration(seconds: 5), (Timer t) async {
+    try {
+      LocationData locationData = await locationController.getLocation();
+      GeoPoint geoPoint = GeoPoint(locationData.latitude!, locationData.longitude!);
+
+      print('Location updated: Latitude ${locationData.latitude}, Longitude ${locationData.longitude}');
+      // Update Firestore with new location
       await firestore.collection('bus_details').doc(documentId).update({
         'location': geoPoint,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
+      // Update marker location
+    if(mounted){
       _updateMarkerLocation(documentId!, geoPoint);
-    });
-  }
+    }
+    } catch (e) {
+      print("Error in periodic location update: $e");
+    }
+  });
+}
 
   void _stopSharingLocation() async {
     _locationTimer?.cancel();
@@ -506,6 +619,15 @@ class MapPageState extends State<MapPage> {
       documentId = null;
     });
   }
+
+  String formatHourToTimeString(int hour) {
+  // Convert 24-hour clock to 12-hour clock
+  final isPM = hour >= 12;
+  final formattedHour = (hour % 12 == 0) ? 12 : hour % 12; // 0 and 12 both map to 12
+  final period = isPM ? "PM" : "AM";
+
+  return "$formattedHour:00 $period";
+}
 
   void _addMarker(String docId, GeoPoint geoPoint) {
     final markerId = docId;
@@ -521,37 +643,42 @@ class MapPageState extends State<MapPage> {
   }
 
   void _showBusInfo(String docId) async {
-    DocumentSnapshot docSnapshot =
-        await firestore.collection('bus_details').doc(docId).get();
-    if (docSnapshot.exists) {
-      Map<String, dynamic> busInfo = docSnapshot.data() as Map<String, dynamic>;
+  DocumentSnapshot docSnapshot =
+      await firestore.collection('bus_details').doc(docId).get();
+  if (docSnapshot.exists) {
+    Map<String, dynamic> busInfo = docSnapshot.data() as Map<String, dynamic>;
 
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Center(child: Text("Bus Information")),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("Capacity: ${busInfo['capacity']}"),
-                Text(
-                    "Wheelchair Access: ${busInfo['wheelchair_access'] == 'Yes' ? 'Yes' : 'No'}"),
-                Text(
-                    "Departure Time: ${busInfo['departure_time'] ?? 'Unknown'}"),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text("Close"),
-              ),
+    // Convert the stored departure time (integer) to a readable string
+    String formattedTime = busInfo['departure_time'] != null
+        ? formatHourToTimeString(busInfo['departure_time'])
+        : 'Unknown';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Center(child: Text("Bus Information")),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Capacity: ${busInfo['capacity']}"),
+              Text(
+                  "Wheelchair Access: ${busInfo['wheelchair_access'] == 'Yes' ? 'Yes' : 'No'}"),
+              Text("Departure Time: $formattedTime"),
             ],
-          );
-        },
-      );
-    }
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
   }
+}
+
 
   void showPermissionDeniedDialog() {
     showDialog(
@@ -572,3 +699,5 @@ class MapPageState extends State<MapPage> {
     );
   }
 }
+
+

@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/firebase_options.dart';
+import 'package:flutter_application_1/pages/report_page.dart';
+import 'package:flutter_application_1/pages/help_page.dart';
 import 'package:flutter_application_1/pages/map_pages.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geolocator/geolocator.dart';
 import 'dart:html' as html;
 import 'package:flutter_application_1/pages/bus_ticket_page.dart';
 
@@ -29,8 +30,7 @@ class MyApp extends StatelessWidget {
         title: 'UWI Bus Tracker',
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color.fromARGB(255, 215, 30, 205)),
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)
         ),
         home: MyHomePage(),
       ),
@@ -64,10 +64,11 @@ class _MyHomePageState extends State<MyHomePage> {
         page = BusTickets();
 
       case 2:
-        page = Placeholder();
-
+        page = ReportPage();
+      
       case 3:
-        page = Placeholder();
+        page = HelpPage();
+      
 
       default:
         throw UnimplementedError('No widget for $selectedIndex');
@@ -144,9 +145,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           label: Text('Report'),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.help),
-                          label: Text('Help'),
-                        ),
+                        icon: Icon(Icons.help),
+                        label: Text('Help'),
+                      ),
                       ],
                       selectedIndex: selectedIndex,
                       onDestinationSelected: (value) {
@@ -171,66 +172,70 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void showNotificationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: true, // Allows tapping outside to dismiss
-      builder: (BuildContext context) {
-        return GestureDetector(
-          onTap: () {
-            // Dismiss dialog when tapping outside
-            Navigator.of(context).pop();
+  showDialog(
+    context: context,
+    barrierDismissible: true, // Allows tapping outside to dismiss
+    builder: (BuildContext context) {
+      return GestureDetector(
+        onTap: () {
+          // Dismiss dialog when tapping outside
+          Navigator.of(context).pop();
+        },
+        child: WillPopScope(
+          onWillPop: () async {
+            // Allow back navigation
+            return true;
           },
-          child: WillPopScope(
-            onWillPop: () async {
-              // Allow back navigation
-              return true;
-            },
-            child: AlertDialog(
-              title: const Text('Select Stops'),
-              content: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: stopCoordinates.keys.map((stop) {
-                    return CheckboxListTile(
-                      title: Text(stop),
-                      value: selectedStops.contains(stop),
-                      onChanged: (bool? value) {
-                        setState(() {
-                          if (value == true) {
-                            selectedStops
-                                .add(stop); // Add stop to the selected stops
-                          } else {
-                            selectedStops.remove(
-                                stop); // Remove stop from the selected stops
-                          }
-                        });
+          child: AlertDialog(
+            title: const Text('Select Stops'),
+            content: StatefulBuilder(
+              builder: (BuildContext context, void Function(void Function()) setDialogState) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: stopCoordinates.keys.map((stop) {
+                      return CheckboxListTile(
+                        title: Text(stop),
+                        value: selectedStops.contains(stop),
+                        onChanged: (bool? value) {
+                          setDialogState(() {
+                            if (value == true) {
+                              selectedStops.add(stop); // Add stop to the selected stops
+                            } else {
+                              selectedStops.remove(stop); // Remove stop from the selected stops
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+
+                  // Start monitoring after the "Submit" button is pressed
+                  if (selectedStops.isNotEmpty) {
+                    _monitoringTimer = Timer.periodic(
+                      const Duration(seconds: 5),
+                      (Timer t) {
+                        beginMonitoring();
                       },
                     );
-                  }).toList(),
-                ),
+                  }
+                },
+                child: const Text('Submit'),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-
-                    // Start monitoring after the "Submit" button is pressed
-                    if (selectedStops.isNotEmpty) {
-                      _monitoringTimer =
-                          Timer.periodic(Duration(seconds: 5), (Timer t) {
-                        beginMonitoring();
-                      });
-                    }
-                  },
-                  child: const Text('Submit'),
-                ),
-              ],
-            ),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   void beginMonitoring() {
     if (selectedStops.isNotEmpty) {
