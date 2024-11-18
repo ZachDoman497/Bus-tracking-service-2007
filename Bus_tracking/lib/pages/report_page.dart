@@ -16,6 +16,7 @@ void clearText() {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false, // Disable the debug banner
       home: Scaffold(
         appBar: AppBar(
           title: Text('Report an Issue'),

@@ -346,25 +346,34 @@ double calculateDistance(GeoPoint point1, GeoPoint point2) {
 
 void _initializeRealTimeTracking() {
   firestore.collection('bus_details').snapshots().listen((querySnapshot) {
-    for (var doc in querySnapshot.docs) {
-      // Check if the average_location field exists in the document
-      if (doc['average_location'] != null) {
-        GeoPoint averageGeoPoint = doc['average_location'];
+    for (var change in querySnapshot.docChanges) {
+      if (change.type == DocumentChangeType.added || 
+          change.type == DocumentChangeType.modified) {
+        // Handle added or modified documents
+        var doc = change.doc;
+        if (doc['average_location'] != null) {
+          GeoPoint averageGeoPoint = doc['average_location'];
 
-        // Debug print statement to verify the GeoPoint
-        print("Average GeoPoint for doc ${doc.id}: ${averageGeoPoint.latitude}, ${averageGeoPoint.longitude}");
+          print("Average GeoPoint for doc ${doc.id}: ${averageGeoPoint.latitude}, ${averageGeoPoint.longitude}");
 
-        // Update the marker location with the average GeoPoint
-        _updateMarkerLocation(doc.id, averageGeoPoint);
-      } else {
-        // Print if no average_location is found
-        print("No average_location found in doc ${doc.id}");
+          _updateMarkerLocation(doc.id, averageGeoPoint);
+        } else {
+          print("No average_location found in doc ${doc.id}");
+        }
+      } else if (change.type == DocumentChangeType.removed) {
+        // Handle deleted documents
+        String docId = change.doc.id;
+
+        // Remove the marker for the deleted document
+        setState(() {
+          _markers.removeWhere((m) => m.markerId.value == docId);
+        });
+
+        print("Marker removed for docId: $docId");
       }
     }
   });
 }
-
-
 
   void _updateMarkerLocation(String docId, GeoPoint geoPoint) {
     final markerId = docId;

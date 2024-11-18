@@ -28,10 +28,10 @@ class MyApp extends StatelessWidget {
       create: (context) => MyAppState(),
       child: MaterialApp(
         title: 'UWI Bus Tracker',
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)
-        ),
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)),
         home: MyHomePage(),
       ),
     );
@@ -65,10 +65,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
       case 2:
         page = ReportPage();
-      
+
       case 3:
         page = HelpPage();
-      
 
       default:
         throw UnimplementedError('No widget for $selectedIndex');
@@ -145,9 +144,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           label: Text('Report'),
                         ),
                         NavigationRailDestination(
-                        icon: Icon(Icons.help),
-                        label: Text('Help'),
-                      ),
+                          icon: Icon(Icons.help),
+                          label: Text('Help'),
+                        ),
                       ],
                       selectedIndex: selectedIndex,
                       onDestinationSelected: (value) {
@@ -172,70 +171,73 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void showNotificationDialog() {
-  showDialog(
-    context: context,
-    barrierDismissible: true, // Allows tapping outside to dismiss
-    builder: (BuildContext context) {
-      return GestureDetector(
-        onTap: () {
-          // Dismiss dialog when tapping outside
-          Navigator.of(context).pop();
-        },
-        child: WillPopScope(
-          onWillPop: () async {
-            // Allow back navigation
-            return true;
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Allows tapping outside to dismiss
+      builder: (BuildContext context) {
+        return GestureDetector(
+          onTap: () {
+            // Dismiss dialog when tapping outside
+            Navigator.of(context).pop();
           },
-          child: AlertDialog(
-            title: const Text('Select Stops'),
-            content: StatefulBuilder(
-              builder: (BuildContext context, void Function(void Function()) setDialogState) {
-                return SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: stopCoordinates.keys.map((stop) {
-                      return CheckboxListTile(
-                        title: Text(stop),
-                        value: selectedStops.contains(stop),
-                        onChanged: (bool? value) {
-                          setDialogState(() {
-                            if (value == true) {
-                              selectedStops.add(stop); // Add stop to the selected stops
-                            } else {
-                              selectedStops.remove(stop); // Remove stop from the selected stops
-                            }
-                          });
+          child: WillPopScope(
+            onWillPop: () async {
+              // Allow back navigation
+              return true;
+            },
+            child: AlertDialog(
+              title: const Text('Select Stops'),
+              content: StatefulBuilder(
+                builder: (BuildContext context,
+                    void Function(void Function()) setDialogState) {
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: stopCoordinates.keys.map((stop) {
+                        return CheckboxListTile(
+                          title: Text(stop),
+                          value: selectedStops.contains(stop),
+                          onChanged: (bool? value) {
+                            setDialogState(() {
+                              if (value == true) {
+                                selectedStops.add(
+                                    stop); // Add stop to the selected stops
+                              } else {
+                                selectedStops.remove(
+                                    stop); // Remove stop from the selected stops
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+
+                    // Start monitoring after the "Submit" button is pressed
+                    if (selectedStops.isNotEmpty) {
+                      _monitoringTimer = Timer.periodic(
+                        const Duration(seconds: 5),
+                        (Timer t) {
+                          beginMonitoring();
                         },
                       );
-                    }).toList(),
-                  ),
-                );
-              },
+                    }
+                  },
+                  child: const Text('Submit'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-
-                  // Start monitoring after the "Submit" button is pressed
-                  if (selectedStops.isNotEmpty) {
-                    _monitoringTimer = Timer.periodic(
-                      const Duration(seconds: 5),
-                      (Timer t) {
-                        beginMonitoring();
-                      },
-                    );
-                  }
-                },
-                child: const Text('Submit'),
-              ),
-            ],
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   void beginMonitoring() {
     if (selectedStops.isNotEmpty) {
@@ -300,26 +302,21 @@ class _MyHomePageState extends State<MyHomePage> {
         }
 
         // Safely extract bus information with null checks
-        GeoPoint? geoPoint = busData['location']; // GeoPoint could be null
-
-        String capacity = busData['capacity'] ??
-            'Unknown'; // Default to 'Unknown' if capacity is null
-        String wheelchairaccess = busData['wheelchair_access'] ??
-            'Unknown'; // Default to 'Unknown' if departure_time is null
-        String departureTime = busData['departure_time'] ??
-            'Unknown'; // Default to 'Unknown' if departure_time is null
-
-        Timestamp timestamp = busData['timestamp'] ??
-            Timestamp
-                .now(); // Using Timestamp if it's a Firestore Timestamp field
+        GeoPoint? geoPoint =
+            busData['average_location']; // GeoPoint could be null
+        String capacity = busData['capacity'] ?? 'Unknown'; // Default if null
+        String wheelchairAccess =
+            busData['wheelchair_access'] == 'Yes' ? 'Yes' : 'No';
+        String departureTime = busData['departure_time'] != null
+            ? formatHourToTimeString(busData['departure_time'])
+            : 'Unknown';
         String busId = doc.id;
 
         if (geoPoint != null) {
           // Extract latitude and longitude from GeoPoint
           LatLng busPosition = LatLng(geoPoint.latitude, geoPoint.longitude);
-          print('bus id test $busId');
-          print('Monitoring buses...');
-          print('$timestamp');
+          print('Monitoring bus with ID: $busId...');
+
           // Check proximity to selected stops
           for (String stop in selectedStops) {
             if (stopCoordinates.containsKey(stop)) {
@@ -327,12 +324,14 @@ class _MyHomePageState extends State<MyHomePage> {
               double distance = _calculateDistance(busPosition, stopPosition);
 
               if (distance <= 1) {
-                // Check if notification has already been sent for this bus and stop
+                // Create a unique key for the bus-stop pair
                 String busStopKey = '$busId-$stop';
+
+                // Check if notification has already been sent for this bus-stop pair
                 if (!notifiedBusStops.contains(busStopKey)) {
-                  // If no notification has been sent, send one
+                  // Send a notification if it hasn't been sent yet
                   _sendNotification(busId, stopPosition, capacity,
-                      wheelchairaccess, departureTime);
+                      wheelchairAccess, departureTime);
 
                   // Mark this bus-stop pair as notified
                   notifiedBusStops.add(busStopKey);
@@ -387,6 +386,16 @@ class _MyHomePageState extends State<MyHomePage> {
           'Departure Time: $departureTime',
     );
   }
+}
+
+formatHourToTimeString(int hour) {
+  // Convert 24-hour clock to 12-hour clock
+  final isPM = hour >= 12;
+  final formattedHour =
+      (hour % 12 == 0) ? 12 : hour % 12; // 0 and 12 both map to 12
+  final period = isPM ? "PM" : "AM";
+
+  return "$formattedHour:00 $period";
 }
 
 Map<String, LatLng> stopCoordinates = {
