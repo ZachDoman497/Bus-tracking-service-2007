@@ -4,31 +4,34 @@ import 'package:location/location.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:html';
 
-class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  class MapPage extends StatefulWidget {
+    const MapPage({super.key});
 
-  @override
-  State<MapPage> createState() => MapPageState();
-}
+    @override
+    State<MapPage> createState() => MapPageState();
+  }
 
-class MapPageState extends State<MapPage> {
-  Location locationController = Location();
-  LatLng? currentP;
-  bool permissionDenied = false;
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
-  String selectedCapacity = 'Moderate';
-  String selectedWheelchairAccess = 'No';
-  TimeOfDay? selectedDepartureTime;
-  bool isSharingLocation = false;
-  String? documentId;
-  Timer? _locationTimer;
-  static double minLat = 10.236324341653932;
-  static double maxLat = 10.651843368801126;
-  static double minLong = -61.47365576757059;
-  static double maxLong = -61.3716931241147;
+  class MapPageState extends State<MapPage> {
+    Location locationController = Location();
+    LatLng? currentP;
+    bool permissionDenied = false;
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    Set<Marker> _markers = {};
+    Set<Polyline> _polylines = {};
+    String selectedCapacity = 'Moderate';
+    String selectedWheelchairAccess = 'No';
+    TimeOfDay? selectedDepartureTime = TimeOfDay(hour: 9, minute: 0);
+    bool isSharingLocation = false;
+    String? documentId;
+    Timer? _locationTimer;
+    static double minLat = 10.236324341653932;
+    static double maxLat = 10.651843368801126;
+    static double minLong = -61.47365576757059;
+    static double maxLong = -61.3716931241147;
+    String? userId;
   
   final List<LatLng> routeStops = [
     LatLng(10.283636641282095, -61.468293973896834), // San Fernando Terminal
@@ -268,6 +271,7 @@ class MapPageState extends State<MapPage> {
   void initState() {
     super.initState();
     _initializeRealTimeTracking();
+    initializeUserId(); 
     _createRoutePolyline();
   }
 
@@ -284,21 +288,83 @@ class MapPageState extends State<MapPage> {
     });
   }
 
-  bool isLocationValid(GeoPoint geoPoint) {
-  return geoPoint.latitude >= minLat &&
-         geoPoint.latitude <= maxLat &&
-         geoPoint.longitude >= minLong &&
-         geoPoint.longitude <= maxLong;
+  bool isLocationValid(GeoPoint geoPoint, Map<String, GeoPoint> locations) {
+  // Check if location is within the valid geofencing area
+  if (geoPoint.latitude < minLat || geoPoint.latitude > maxLat || 
+      geoPoint.longitude < minLong || geoPoint.longitude > maxLong) {
+    return false;
+  }
+
+  // Calculate the average location of existing locations
+  GeoPoint averageLocation = calculateAverageLocation(locations);
+
+  // Check if the new location is too far from the average location
+  double distance = calculateDistance(geoPoint, averageLocation);
+
+  // Define a threshold for valid distance (e.g., 100 meters)
+  return distance < 100; 
 }
 
 
-  void _initializeRealTimeTracking() {
-    firestore.collection('bus_details').snapshots().listen((querySnapshot) {
-      for (var doc in querySnapshot.docs) {
-        _updateMarkerLocation(doc.id, doc['location']);
-      }
-    });
+void initializeUserId() {
+  // Try retrieving the existing user ID
+  userId = window.localStorage['userId'];
+
+  // Generate a new UUID if no ID exists
+  if (userId == null) {
+    var uuid = Uuid();
+    userId = uuid.v4(); // Generate a unique ID
+    window.localStorage['userId'] = userId!; // Save to local storage
   }
+
+  print('User ID initialized: $userId');
+}
+
+GeoPoint calculateAverageLocation(Map<String, GeoPoint> locations) {
+  double totalLatitude = 0;
+  double totalLongitude = 0;
+  int count = locations.length;
+
+  locations.forEach((userId, geoPoint) {
+    totalLatitude += geoPoint.latitude;
+    totalLongitude += geoPoint.longitude;
+  });
+
+  double averageLatitude = totalLatitude / count;
+  double averageLongitude = totalLongitude / count;
+
+  return GeoPoint(averageLatitude, averageLongitude);
+}
+
+double calculateDistance(GeoPoint point1, GeoPoint point2) {
+  double distance = Geolocator.distanceBetween(
+    point1.latitude, point1.longitude,
+    point2.latitude, point2.longitude,
+  );
+  return distance; // Distance in meters
+}
+
+void _initializeRealTimeTracking() {
+  firestore.collection('bus_details').snapshots().listen((querySnapshot) {
+    for (var doc in querySnapshot.docs) {
+      // Check if the average_location field exists in the document
+      if (doc['average_location'] != null) {
+        GeoPoint averageGeoPoint = doc['average_location'];
+
+        // Debug print statement to verify the GeoPoint
+        print("Average GeoPoint for doc ${doc.id}: ${averageGeoPoint.latitude}, ${averageGeoPoint.longitude}");
+
+        // Update the marker location with the average GeoPoint
+        _updateMarkerLocation(doc.id, averageGeoPoint);
+      } else {
+        // Print if no average_location is found
+        print("No average_location found in doc ${doc.id}");
+      }
+    }
+  });
+}
+
+
 
   void _updateMarkerLocation(String docId, GeoPoint geoPoint) {
     final markerId = docId;
@@ -432,10 +498,11 @@ class MapPageState extends State<MapPage> {
   }
 
   Future<String?> handleSubmission(
-  int departureTime,
-  GeoPoint geoPoint,
-  String selectedCapacity,
-  String selectedWheelchairAccess,
+    int departureTime,
+    GeoPoint geoPoint,
+    String selectedCapacity,
+    String selectedWheelchairAccess,
+    String userId,
 ) async {
   try {
     // Query Firestore for an existing document with the same departure_time
@@ -448,16 +515,34 @@ class MapPageState extends State<MapPage> {
       // If a matching document exists, update it
       DocumentSnapshot existingDoc = querySnapshot.docs.first;
 
-      await firestore.collection('bus_details').doc(existingDoc.id).update({
-        'capacity': selectedCapacity,
-        'wheelchair_access': selectedWheelchairAccess,
-        'departure_time': departureTime, // Ensure this field is updated
-        'location': geoPoint,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      // Retrieve the locations map from the existing document
+      Map<String, GeoPoint> locations = Map.from(existingDoc['locations']);
 
-      // Return the document ID of the updated document
-      return existingDoc.id;
+      // Validate the new location before adding it
+      if (isLocationValid(geoPoint, locations)) {
+        // Add the new location to the locations map
+        locations[userId] = geoPoint;  // Add or update the user's location
+
+        // Calculate the average location after adding the new location
+        GeoPoint averageLocation = calculateAverageLocation(locations);
+
+        // Update Firestore with the new location and average location
+        await firestore.collection('bus_details').doc(existingDoc.id).update({
+          'capacity': selectedCapacity,
+          'wheelchair_access': selectedWheelchairAccess,
+          'departure_time': departureTime,
+          'locations.$userId': geoPoint, // Update the user's specific location
+          'average_location': averageLocation, // Update the average location
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+
+        // Return the document ID of the updated document
+        return existingDoc.id;
+      } else {
+        // Reject submission if the location is invalid
+        print('New location is too far from the average or outside the valid area.');
+        return null;
+      }
     } else {
       // If no matching document exists, create a new one
       DocumentReference newDocRef =
@@ -465,7 +550,8 @@ class MapPageState extends State<MapPage> {
         'capacity': selectedCapacity,
         'wheelchair_access': selectedWheelchairAccess,
         'departure_time': departureTime,
-        'location': geoPoint,
+        'locations': {userId: geoPoint}, // Store the user's location
+        'average_location': geoPoint, // Store the initial average location (just the first user's)
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -477,6 +563,8 @@ class MapPageState extends State<MapPage> {
     return null; // Return null if an error occurs
   }
 }
+
+
 
   Future<void> _selectDepartureTime(
     BuildContext context, StateSetter setDialogState) async {
@@ -538,23 +626,21 @@ class MapPageState extends State<MapPage> {
   LocationData locationData = await locationController.getLocation();
   GeoPoint geoPoint = GeoPoint(locationData.latitude!, locationData.longitude!);
 
-   // Check if the location is within the valid geofencing area
-  if (!isLocationValid(geoPoint)) {
-    // If the location is outside the boundary, show an error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Location is outside the valid area.'),
-      ),
-    );
-    return; // Exit if the location is invalid
+  String? userId = window.localStorage['userId'];
+
+  if (userId == null) {
+    // Handle error: userId should always exist at this point
+    print('Error: userId is null');
+    return;
   }
 
-  // Use handleSubmission to manage Firestore interaction
+  // Query Firestore for an existing document with the same departure_time
   String? docId = await handleSubmission(
     selectedDepartureTime!.hour,
     geoPoint,
     selectedCapacity,
     selectedWheelchairAccess,
+    userId,
   );
 
   if (docId != null) {
@@ -578,8 +664,7 @@ class MapPageState extends State<MapPage> {
   }
 }
 
-
-  void _startLocationUpdates() {
+void _startLocationUpdates() {
   if (documentId == null) {
     print("Error: documentId is not set. Cannot start location updates.");
     return;
@@ -587,25 +672,39 @@ class MapPageState extends State<MapPage> {
 
   _locationTimer = Timer.periodic(Duration(seconds: 5), (Timer t) async {
     try {
+      // Get the current location of the user
       LocationData locationData = await locationController.getLocation();
       GeoPoint geoPoint = GeoPoint(locationData.latitude!, locationData.longitude!);
 
       print('Location updated: Latitude ${locationData.latitude}, Longitude ${locationData.longitude}');
-      // Update Firestore with new location
+
+      // Update Firestore with the new location for this user
       await firestore.collection('bus_details').doc(documentId).update({
-        'location': geoPoint,
+        'locations.$userId': geoPoint,  // Update the user's location in the locations map
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // Update marker location
-    if(mounted){
-      _updateMarkerLocation(documentId!, geoPoint);
-    }
+      // Fetch the latest locations from Firestore and calculate the new average
+      DocumentSnapshot docSnapshot = await firestore.collection('bus_details').doc(documentId).get();
+      if (docSnapshot.exists && docSnapshot['locations'] != null) {
+        Map<String, GeoPoint> locations = Map.from(docSnapshot['locations']);
+        GeoPoint averageLocation = calculateAverageLocation(locations);
+
+        // Update Firestore with the new average location
+        await firestore.collection('bus_details').doc(documentId).update({
+          'average_location': averageLocation,
+        });
+
+        // Update the marker with the average location
+        _updateMarkerLocation(documentId!, averageLocation);
+      }
     } catch (e) {
       print("Error in periodic location update: $e");
     }
   });
 }
+
+
 
   void _stopSharingLocation() async {
     _locationTimer?.cancel();
@@ -699,5 +798,3 @@ class MapPageState extends State<MapPage> {
     );
   }
 }
-
-
